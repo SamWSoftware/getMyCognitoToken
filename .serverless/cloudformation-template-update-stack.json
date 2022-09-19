@@ -1,0 +1,174 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "The AWS CloudFormation template for this Serverless application",
+  "Resources": {
+    "ServerlessDeploymentBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ServerlessDeploymentBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "ServerlessDeploymentBucket"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "ServerlessDeploymentBucket"
+                      },
+                      "/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "ServerlessDeploymentBucket"
+                      }
+                    ]
+                  ]
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": false
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "WebsiteBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": "dev-getmycognitotoken-website-bucket-2",
+        "WebsiteConfiguration": {
+          "ErrorDocument": "index.html",
+          "IndexDocument": "index.html"
+        }
+      }
+    },
+    "ACMCertificate": {
+      "Type": "AWS::CertificateManager::Certificate",
+      "Properties": {
+        "DomainName": "getmycognitotoken.com",
+        "DomainValidationOptions": [
+          {
+            "DomainName": "getmycognitotoken.com",
+            "HostedZoneId": "Z01185332XVWJH8JM7BYY"
+          }
+        ],
+        "ValidationMethod": "DNS"
+      }
+    },
+    "CloudFrontDistribution": {
+      "Type": "AWS::CloudFront::Distribution",
+      "Properties": {
+        "DistributionConfig": {
+          "DefaultRootObject": "index.html",
+          "Origins": [
+            {
+              "DomainName": {
+                "Fn::GetAtt": [
+                  "WebsiteBucket",
+                  "DomainName"
+                ]
+              },
+              "Id": {
+                "Fn::GetAtt": [
+                  "WebsiteBucket",
+                  "DomainName"
+                ]
+              },
+              "CustomOriginConfig": {
+                "HTTPPort": 80,
+                "HTTPSPort": 443,
+                "OriginProtocolPolicy": "https-only"
+              }
+            }
+          ],
+          "Enabled": "true",
+          "HttpVersion": "http2",
+          "DefaultCacheBehavior": {
+            "TargetOriginId": {
+              "Fn::GetAtt": [
+                "WebsiteBucket",
+                "DomainName"
+              ]
+            },
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": [
+              "GET",
+              "HEAD",
+              "OPTIONS"
+            ],
+            "CachedMethods": [
+              "GET",
+              "HEAD"
+            ],
+            "ForwardedValues": {
+              "QueryString": true,
+              "Headers": [
+                "Origin"
+              ]
+            },
+            "Compress": false
+          },
+          "Aliases": [
+            "getmycognitotoken.com"
+          ],
+          "ViewerCertificate": {
+            "AcmCertificateArn": {
+              "Ref": "ACMCertificate"
+            },
+            "SslSupportMethod": "sni-only",
+            "MinimumProtocolVersion": "TLSv1.2_2018"
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ServerlessDeploymentBucketName": {
+      "Value": {
+        "Ref": "ServerlessDeploymentBucket"
+      },
+      "Export": {
+        "Name": "sls-getMyCognitoToken-dev-ServerlessDeploymentBucketName"
+      }
+    }
+  }
+}
